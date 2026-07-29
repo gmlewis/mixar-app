@@ -81,7 +81,8 @@ cmake -C "$CMAKE_DIR/mixar_overrides.cmake" \
     $CMAKE_GENERATOR_ARGS \
     -S "$SOURCE_DIR" \
     -B "$BUILD_ENV_DIR" \
-    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+    -DCMAKE_BUILD_TYPE="$BLENDER_BUILD_ENV"
 
 # Build (all platform-specific args handled in settings.sh)
 echo "Building Blender in $BLENDER_BUILD_ENV mode for Mixar environment: $MIXAR_ENV"

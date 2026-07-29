@@ -16,13 +16,21 @@ if(CMAKE_HOST_WIN32)
   set(CMAKE_C_FLAGS "/DWIN32 /D_WINDOWS /W3" CACHE STRING "C compiler flags" FORCE)
 endif()
 
-# Enable CUDA support for Cycles rendering
-set(WITH_CYCLES_DEVICE_CUDA ON CACHE BOOL "Enable Cycles NVIDIA CUDA compute support" FORCE)
-set(WITH_CYCLES_CUDA_BINARIES ON CACHE BOOL "Build Cycles NVIDIA CUDA binaries" FORCE)
-set(WITH_CUDA_DYNLOAD ON CACHE BOOL "Dynamically load CUDA libraries at runtime" FORCE)
+# Cycles GPU backend is platform-specific:
+#  - macOS / Apple Silicon: Metal (CUDA/OptiX are NVIDIA-only and unavailable here;
+#    forcing WITH_CYCLES_CUDA_BINARIES would require nvcc and fail the build).
+#  - Windows / Linux with NVIDIA: CUDA + OptiX as before.
+if(APPLE)
+  set(WITH_CYCLES_DEVICE_METAL ON CACHE BOOL "Enable Cycles Metal GPU compute support" FORCE)
+else()
+  # Enable CUDA support for Cycles rendering
+  set(WITH_CYCLES_DEVICE_CUDA ON CACHE BOOL "Enable Cycles NVIDIA CUDA compute support" FORCE)
+  set(WITH_CYCLES_CUDA_BINARIES ON CACHE BOOL "Build Cycles NVIDIA CUDA binaries" FORCE)
+  set(WITH_CUDA_DYNLOAD ON CACHE BOOL "Dynamically load CUDA libraries at runtime" FORCE)
 
-# Enable OptiX support for Cycles ray-tracing (requires NVIDIA OptiX SDK)
-set(WITH_CYCLES_DEVICE_OPTIX ON CACHE BOOL "Enable Cycles NVIDIA OptiX support" FORCE)
+  # Enable OptiX support for Cycles ray-tracing (requires NVIDIA OptiX SDK)
+  set(WITH_CYCLES_DEVICE_OPTIX ON CACHE BOOL "Enable Cycles NVIDIA OptiX support" FORCE)
+endif()
 
 # sccache compiler launcher - auto-enabled when sccache is on PATH.
 # On Windows, Blender's platform_win32.cmake handles /Z7 and compiler launcher
