@@ -13,7 +13,19 @@ make init          # Initialize: git submodules + LFS files
 make build         # Full build: overlay + CMake + compile + install packages
 make clean_build   # Clean build: removes source/ and rebuilds
 make install       # Install Python packages into embedded Blender Python
+./build-and-install.sh  # Build + install to system (macOS: /Applications, Linux: /usr/local)
 ```
+
+### Platform Support
+- **macOS**: App bundle at `build/Prod/bin/Mixar.app/Contents/MacOS/Mixar`; installs to `/Applications/Mixar.app` with `/usr/local/bin/mixar` symlink
+- **Linux**: Portable layout at `build/Prod/bin/mixar`; installs bundle to `/usr/local/lib/mixar/` with `/usr/local/bin/mixar` symlink. Desktop integration (`.desktop`, icons, metainfo) installed to `/usr/local/share/`
+
+### GPU Acceleration (Cycles)
+- **macOS**: Metal backend (automatic)
+- **Linux/Windows with NVIDIA**: CUDA + OptiX when the CUDA toolkit (`nvcc`) and OptiX SDK are available; falls back to CUDA dynload (no pre-compiled kernels) when `nvcc` is absent
+- Set `MIXAR_CUDA_PATH` or `CUDA_PATH` to point to a custom CUDA toolkit
+- Set `MIXAR_OPTIX_ROOT` or `OPTIX_ROOT_PATH` to point to the OptiX SDK root (containing `include/optix.h`)
+- After installing/removing CUDA or OptiX, delete `build/Prod/CMakeCache.txt` and rebuild to re-detect
 
 ### How the Build Works
 - `scripts/unix/build.sh` orchestrates the build

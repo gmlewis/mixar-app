@@ -120,47 +120,46 @@ if [[ "$PLATFORM" == "macOS" ]]; then
     sudo ln -sf "$APP_DEST/$EXEC_REL" "$BIN_LINK"
 
 elif [[ "$PLATFORM" == "Linux" ]]; then
-    # Linux: install binary to /usr/local/bin, resources to /usr/local/share/mixar/,
-    # and create a desktop entry.
-    echo "    Installing binary to /usr/local/bin/mixar and resources (sudo required)..."
+    # Linux portable install: Mixar expects resources relative to the binary
+    # (5.0/ and lib/ next to the executable). We install the whole portable
+    # bundle under /usr/local/lib/mixar/ and symlink the binary to /usr/local/bin.
+    echo "    Installing Mixar portable bundle to /usr/local/lib/mixar (sudo required)..."
     sudo -v
 
-    # Install the binary
+    MIXAR_LIBDIR="/usr/local/lib/mixar"
+
+    # Install the entire portable bundle (binary + 5.0/ + lib/ + support files)
+    sudo mkdir -p "$MIXAR_LIBDIR"
+    sudo rsync -a --delete \
+        --exclude 'datatoc' \
+        --exclude 'glsl_preprocess' \
+        --exclude 'makesdna' \
+        --exclude 'makesrna' \
+        --exclude 'msgfmt' \
+        --exclude 'zstd_compress' \
+        --exclude 'blender-system-info.sh' \
+        --exclude 'readme.html' \
+        "$APP_SRC/" "$MIXAR_LIBDIR/"
+    sudo chmod +x "$MIXAR_LIBDIR/mixar"
+
+    # Symlink the binary into /usr/local/bin
     sudo mkdir -p /usr/local/bin
-    sudo install -m 755 "$APP_SRC/bin/mixar" /usr/local/bin/mixar
-
-    # Install shared resources (version data, scripts, Python, etc.)
-    if [ -d "$APP_SRC/share" ]; then
-        sudo rsync -a --delete "$APP_SRC/share/" /usr/local/share/
-    fi
-
-    # Install the version directory (5.0/ — contains Python, scripts, config)
-    if [ -d "$APP_SRC/$BLENDER_VERSION" ]; then
-        sudo mkdir -p "/usr/local/share/mixar/$BLENDER_VERSION"
-        sudo rsync -a --delete \
-            "$APP_SRC/$BLENDER_VERSION/" "/usr/local/share/mixar/$BLENDER_VERSION/"
-    fi
-
-    # Install shared libraries if present (portable build)
-    if [ -d "$APP_SRC/lib" ]; then
-        sudo mkdir -p /usr/local/lib/mixar
-        sudo rsync -a --delete "$APP_SRC/lib/" /usr/local/lib/mixar/
-    fi
+    sudo ln -sf "$MIXAR_LIBDIR/mixar" /usr/local/bin/mixar
 
     # Install .desktop file for desktop integration
     DESKTOP_SRC="$ROOT_DIR/src/release/freedesktop/mixar.desktop"
+    if [ ! -f "$DESKTOP_SRC" ]; then
+        DESKTOP_SRC="$APP_SRC/mixar.desktop"
+    fi
     if [ -f "$DESKTOP_SRC" ]; then
         sudo mkdir -p /usr/local/share/applications
         sudo install -m 644 "$DESKTOP_SRC" /usr/local/share/applications/mixar.desktop
-    elif [ -f "$APP_SRC/share/applications/mixar.desktop" ]; then
-        sudo mkdir -p /usr/local/share/applications
-        sudo install -m 644 "$APP_SRC/share/applications/mixar.desktop" /usr/local/share/applications/mixar.desktop
     fi
 
     # Install icons for desktop integration
     for icon_src in \
         "$ROOT_DIR/src/release/freedesktop/icons/scalable/apps/mixar.svg" \
-        "$APP_SRC/share/icons/hicolor/scalable/apps/mixar.svg"; do
+        "$APP_SRC/mixar.svg"; do
         if [ -f "$icon_src" ]; then
             sudo mkdir -p /usr/local/share/icons/hicolor/scalable/apps
             sudo install -m 644 "$icon_src" /usr/local/share/icons/hicolor/scalable/apps/mixar.svg
@@ -169,7 +168,7 @@ elif [[ "$PLATFORM" == "Linux" ]]; then
     done
     for icon_src in \
         "$ROOT_DIR/src/release/freedesktop/icons/symbolic/apps/mixar-symbolic.svg" \
-        "$APP_SRC/share/icons/hicolor/symbolic/apps/mixar-symbolic.svg"; do
+        "$APP_SRC/mixar-symbolic.svg"; do
         if [ -f "$icon_src" ]; then
             sudo mkdir -p /usr/local/share/icons/hicolor/symbolic/apps
             sudo install -m 644 "$icon_src" /usr/local/share/icons/hicolor/symbolic/apps/mixar-symbolic.svg
@@ -206,6 +205,7 @@ if [[ "$PLATFORM" == "macOS" ]]; then
     echo "    open $APP_DEST"
 else
     echo "Mixar is installed at: /usr/local/bin/mixar"
+    echo "  -> symlinked from: /usr/local/lib/mixar/mixar"
     echo "Launch it with:"
     echo "    mixar"
 fi
