@@ -19,17 +19,41 @@ endif()
 # Cycles GPU backend is platform-specific:
 #  - macOS / Apple Silicon: Metal (CUDA/OptiX are NVIDIA-only and unavailable here;
 #    forcing WITH_CYCLES_CUDA_BINARIES would require nvcc and fail the build).
-#  - Windows / Linux with NVIDIA: CUDA + OptiX as before.
+#  - Windows / Linux with NVIDIA: CUDA + OptiX when the CUDA toolkit and OptiX SDK
+#    are available; otherwise fall back to CPU-only Cycles.
 if(APPLE)
   set(WITH_CYCLES_DEVICE_METAL ON CACHE BOOL "Enable Cycles Metal GPU compute support" FORCE)
 else()
-  # Enable CUDA support for Cycles rendering
-  set(WITH_CYCLES_DEVICE_CUDA ON CACHE BOOL "Enable Cycles NVIDIA CUDA compute support" FORCE)
-  set(WITH_CYCLES_CUDA_BINARIES ON CACHE BOOL "Build Cycles NVIDIA CUDA binaries" FORCE)
-  set(WITH_CUDA_DYNLOAD ON CACHE BOOL "Dynamically load CUDA libraries at runtime" FORCE)
+  # Enable CUDA support for Cycles rendering when the CUDA toolkit is present.
+  # WITH_CUDA_DYNLOAD allows Cycles to dlopen libcuda at runtime, so the build
+  # succeeds even without nvcc — but CUDA kernels won't be pre-compiled.
+  find_program(CUDA_NVCC NAMES nvcc PATHS ENV CUDA_PATH PATH_SUFFIXES bin)
+  if(CUDA_NVCC)
+    set(WITH_CYCLES_DEVICE_CUDA ON CACHE BOOL "Enable Cycles NVIDIA CUDA compute support" FORCE)
+    set(WITH_CYCLES_CUDA_BINARIES ON CACHE BOOL "Build Cycles NVIDIA CUDA binaries" FORCE)
+    set(WITH_CUDA_DYNLOAD ON CACHE BOOL "Dynamically load CUDA libraries at runtime" FORCE)
+    message(STATUS "CUDA toolkit found: ${CUDA_NVCC} — enabling CUDA + OptiX")
+  else()
+    set(WITH_CYCLES_DEVICE_CUDA ON CACHE BOOL "Enable Cycles NVIDIA CUDA compute support" FORCE)
+    set(WITH_CYCLES_CUDA_BINARIES OFF CACHE BOOL "Build Cycles NVIDIA CUDA binaries" FORCE)
+    set(WITH_CUDA_DYNLOAD ON CACHE BOOL "Dynamically load CUDA libraries at runtime" FORCE)
+    message(STATUS "CUDA toolkit NOT found — Cycles CUDA enabled (dynload) but kernels not pre-compiled")
+  endif()
 
-  # Enable OptiX support for Cycles ray-tracing (requires NVIDIA OptiX SDK)
-  set(WITH_CYCLES_DEVICE_OPTIX ON CACHE BOOL "Enable Cycles NVIDIA OptiX support" FORCE)
+  # Enable OptiX support when the OptiX SDK is present.
+  find_path(OPTIX_INCLUDE_DIR NAMES optix.h PATHS
+    ENV OPTIX_ROOT_PATH
+    /opt/NVIDIA/OptiX
+    /usr/local/NVIDIA/OptiX
+    PATH_SUFFIXES include
+  )
+  if(OPTIX_INCLUDE_DIR)
+    set(WITH_CYCLES_DEVICE_OPTIX ON CACHE BOOL "Enable Cycles NVIDIA OptiX support" FORCE)
+    message(STATUS "OptiX SDK found at ${OPTIX_INCLUDE_DIR} — enabling OptiX")
+  else()
+    set(WITH_CYCLES_DEVICE_OPTIX OFF CACHE BOOL "Enable Cycles NVIDIA OptiX support" FORCE)
+    message(STATUS "OptiX SDK NOT found — disabling OptiX")
+  endif()
 endif()
 
 # sccache compiler launcher - auto-enabled when sccache is on PATH.

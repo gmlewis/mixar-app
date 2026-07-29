@@ -92,7 +92,14 @@ cmake --build "$BUILD_ENV_DIR" --target install --config "$BLENDER_BUILD_ENV"
 
 # Generate runtime configuration for the bundle
 echo "Generating runtime configuration for bundle..."
-BUNDLE_CONFIG_DIR="$BUILD_ENV_DIR/bin/Mixar.app/Contents/Resources/$BLENDER_VERSION/config"
+if [[ "$PLATFORM" == "macOS" ]]; then
+    BUNDLE_CONFIG_DIR="$BUILD_ENV_DIR/bin/Mixar.app/Contents/Resources/$BLENDER_VERSION/config"
+elif [[ "$PLATFORM" == "Linux" ]]; then
+    BUNDLE_CONFIG_DIR="$BUILD_ENV_DIR/bin/$BLENDER_VERSION/config"
+else
+    echo "Error: Unsupported platform for config generation: $PLATFORM" >&2
+    exit 1
+fi
 python3 "$ROOT_DIR/scripts/generate_config.py" --output "$BUNDLE_CONFIG_DIR/mixar.json"
 
 # Install Python packages using the generated Python binary
@@ -155,6 +162,15 @@ else
 fi
 
 # Done
+# Print platform-appropriate launch command
+if [[ "$PLATFORM" == "macOS" ]]; then
+    MIXAR_BIN="$BUILD_ENV_DIR/bin/Mixar.app/Contents/MacOS/Mixar"
+elif [[ "$PLATFORM" == "Linux" ]]; then
+    MIXAR_BIN="$BUILD_ENV_DIR/bin/mixar"
+else
+    MIXAR_BIN="$BUILD_ENV_DIR/bin/mixar"
+fi
+
 echo "=== Build Complete ==="
 echo "Python packages installed from: $REQUIREMENTS_FILE"
-echo "Run Mixar using: $BUILD_ENV_DIR/bin/Mixar.app/Contents/MacOS/Mixar"
+echo "Run Mixar using: $MIXAR_BIN"
