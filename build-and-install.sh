@@ -27,6 +27,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Load all build settings (ROOT_DIR, BUILD_DIR, UPSTREAM_DIR, MIXAR_ENV, ...).
 # shellcheck source=scripts/unix/settings.sh
 source "$SCRIPT_DIR/scripts/unix/settings.sh"
+# NOTE: settings.sh reassigns SCRIPT_DIR to its own dir (scripts/unix), so use
+# the ROOT_DIR it exports (the repo root) for any further repo-relative paths.
 
 BUILD_ENV_DIR="${BUILD_DIR}/${MIXAR_ENV}"
 APP_SRC="$BUILD_ENV_DIR/bin/Mixar.app"
@@ -45,7 +47,7 @@ echo
 # One-time: clones the multi-GB Blender upstream submodule and pulls LFS assets.
 if [ ! -f "$UPSTREAM_DIR/CMakeLists.txt" ]; then
     echo "--- Initializing upstream submodule + Git-LFS (one-time; may take a while)..."
-    "$SCRIPT_DIR/scripts/unix/init.sh"
+    "$ROOT_DIR/scripts/unix/init.sh"
 else
     echo "--- upstream already initialized; skipping init."
 fi
@@ -56,7 +58,7 @@ echo
 # files keep their timestamps) and runs an incremental CMake build + install +
 # Python-package install. With no changed files the compile is a fast no-op.
 echo "--- Building (incremental; only changed files recompile)..."
-"$SCRIPT_DIR/scripts/unix/build.sh"
+"$ROOT_DIR/scripts/unix/build.sh"
 echo
 
 # --- 3. Verify the built app bundle exists -----------------------------------
