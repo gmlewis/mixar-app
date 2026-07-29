@@ -111,6 +111,7 @@ else()
     /opt/NVIDIA/OptiX
     /usr/local/NVIDIA/OptiX
     $ENV{HOME}/NVIDIA-OptiX
+    $ENV{HOME}/src/github.com/nvidia/NVIDIA-OptiX-SDK-9.1.0-linux64-x86_64
     $ENV{HOME}/src/github.com/nvidia/NVIDIA-OptiX-SDK-7.3.0-linux64-x86_64
     PATH_SUFFIXES include
   )
