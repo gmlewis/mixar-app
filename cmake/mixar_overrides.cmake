@@ -36,11 +36,62 @@ else()
       /usr
     PATH_SUFFIXES bin
   )
+  # CUDA host compiler compatibility check.
+  # nvcc has a maximum supported GCC version (CUDA 12.0 supports ≤ GCC 12).
+  # Modern Linux distros ship GCC 13+ as the default, which causes nvcc to fail
+  # with "unsupported GNU version".  Search for a compatible host compiler and
+  # set CMAKE_CUDA_HOST_COMPILER when found; otherwise fall back to dynload
+  # mode (no pre-compiled kernels — they compile at runtime instead).
+  function(_mixar_cuda_host_compatible COMPAT_COMPILER)
+    # Prefer C++ compilers (g++) since nvcc compiles C++ host code.
+    # g++-12 is ideal for CUDA 12.x; g++-11 also works.
+    set(_candidates
+      /usr/bin/g++-12 /usr/bin/g++-11
+      /usr/bin/gcc-12 /usr/bin/gcc-11
+    )
+    set(_found "")
+    # Write a minimal CUDA source for the smoke test.
+    set(_test_src "${CMAKE_BINARY_DIR}/_mixar_cuda_host_test.cu")
+    file(WRITE "${_test_src}" "int main(){return 0;}\n")
+    foreach(_c ${_candidates})
+      if(EXISTS "${_c}")
+        # Smoke test: can nvcc actually use this compiler?
+        execute_process(
+          COMMAND ${CUDA_NVCC} -ccbin "${_c}" -c "${_test_src}" -o /dev/null
+          RESULT_VARIABLE _rc
+          OUTPUT_QUIET ERROR_QUIET
+        )
+        if(_rc EQUAL 0)
+          set(_found "${_c}")
+          break()
+        endif()
+      endif()
+    endforeach()
+    file(REMOVE "${_test_src}")
+    set(${COMPAT_COMPILER} "${_found}" PARENT_SCOPE)
+  endfunction()
+
   if(CUDA_NVCC)
-    set(WITH_CYCLES_DEVICE_CUDA ON CACHE BOOL "Enable Cycles NVIDIA CUDA compute support" FORCE)
-    set(WITH_CYCLES_CUDA_BINARIES ON CACHE BOOL "Build Cycles NVIDIA CUDA binaries" FORCE)
-    set(WITH_CUDA_DYNLOAD ON CACHE BOOL "Dynamically load CUDA libraries at runtime" FORCE)
-    message(STATUS "CUDA toolkit found: ${CUDA_NVCC} — enabling CUDA + OptiX")
+    _mixar_cuda_host_compatible(_cuda_host_compiler)
+    if(_cuda_host_compiler)
+      # Set both CMAKE_CUDA_HOST_COMPILER (native CMake) and CUDA_HOST_COMPILER
+      # (FindCUDA module used by Blender's Cycles build system).
+      set(CMAKE_CUDA_HOST_COMPILER "${_cuda_host_compiler}" CACHE FILEPATH "Host compiler for CUDA (nvcc)" FORCE)
+      set(CUDA_HOST_COMPILER "${_cuda_host_compiler}" CACHE FILEPATH "Host compiler for CUDA (nvcc)" FORCE)
+      set(WITH_CYCLES_DEVICE_CUDA ON CACHE BOOL "Enable Cycles NVIDIA CUDA compute support" FORCE)
+      set(WITH_CYCLES_CUDA_BINARIES ON CACHE BOOL "Build Cycles NVIDIA CUDA binaries" FORCE)
+      set(WITH_CUDA_DYNLOAD ON CACHE BOOL "Dynamically load CUDA libraries at runtime" FORCE)
+      message(STATUS "CUDA toolkit found: ${CUDA_NVCC} — enabling CUDA + OptiX "
+        "(host compiler: ${_cuda_host_compiler})")
+    else()
+      set(WITH_CYCLES_DEVICE_CUDA ON CACHE BOOL "Enable Cycles NVIDIA CUDA compute support" FORCE)
+      set(WITH_CYCLES_CUDA_BINARIES OFF CACHE BOOL "Build Cycles NVIDIA CUDA binaries" FORCE)
+      set(WITH_CUDA_DYNLOAD ON CACHE BOOL "Dynamically load CUDA libraries at runtime" FORCE)
+      message(STATUS "CUDA toolkit found (${CUDA_NVCC}) but no compatible host compiler "
+        "for pre-compiled kernels (default GCC is too new for this nvcc). "
+        "Falling back to CUDA dynload (kernels compile at runtime). "
+        "Install gcc-12/g++-12 to enable pre-compiled CUDA kernels.")
+    endif()
   else()
     set(WITH_CYCLES_DEVICE_CUDA ON CACHE BOOL "Enable Cycles NVIDIA CUDA compute support" FORCE)
     set(WITH_CYCLES_CUDA_BINARIES OFF CACHE BOOL "Build Cycles NVIDIA CUDA binaries" FORCE)
